@@ -1,4 +1,4 @@
-## Dabl Dev Camp: module 2
+## Simple Account Page
 
 Single page app that allows users to connect to their wallet, view their account data, and send ETH.
 
