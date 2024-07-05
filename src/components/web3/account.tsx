@@ -7,7 +7,7 @@ import Image from 'next/image';
 export default function Account() {
     const [isMounted, setIsMounted] = useState(false);
     const { address, chain, chainId, isConnected } = useAccount();
-    const balance = useBalance({ address });
+    const { data: balance } = useBalance({ address });
     const { data: ensName } = useEnsName({ address, chainId: mainnet.id });
     const { data: ensAvatar } = useEnsAvatar({ name: ensName!, chainId: mainnet.id });
 
@@ -49,7 +49,7 @@ export default function Account() {
       <div className="flex flex-col gap-y-2">
         {balance && (
           <p className="text-xl">
-            Balance: {balance.data?.value} {balance.data?.symbol}
+            Balance: {balance?.formatted} {balance?.symbol}
           </p>
         )}
         {chain && chainId && isMounted && (
