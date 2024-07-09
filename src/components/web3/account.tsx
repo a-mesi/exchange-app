@@ -3,6 +3,8 @@ import {useAccount, useBalance, useEnsAvatar, useEnsName} from 'wagmi';
 import {useEffect, useState} from 'react';
 import { mainnet } from 'viem/chains';
 import Image from 'next/image';
+import SendErc20Modal from './sendErc20Modal';
+import SendEthModal from './sendEthModal';
 
 export default function Account() {
     const [isMounted, setIsMounted] = useState(false);
@@ -57,6 +59,14 @@ export default function Account() {
             {chain.name}, chainId: {chainId}
           </p>
         )}
+      </div>
+      <div className="flex justify-center gap-x-4">
+        <div className="w-3/5">
+          <SendEthModal />
+        </div>
+        <div className="w-3/5">
+          <SendErc20Modal userAddress={address} />
+        </div>
       </div>
     </div>
   );

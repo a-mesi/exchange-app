@@ -2,7 +2,6 @@
 
 import PageWithNavbar from '@/components/layout/page';
 import Account from '@/components/web3/account';
-import SendEthModal from '@/components/web3/sendEthModal';
 import { ConnectKitButton } from 'connectkit';
 
 export default function Home() {
@@ -14,7 +13,6 @@ export default function Home() {
           <div className="py-8 w-full flex flex-col items-center gap-y-4">
             <ConnectKitButton />
             <Account />
-            <SendEthModal />
           </div>
         </div>
       </div>

@@ -42,7 +42,7 @@ export default function SendEthModal() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button>Send</Button>
+        <Button>Send Eth</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
