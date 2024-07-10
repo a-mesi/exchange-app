@@ -5,6 +5,7 @@ import { mainnet } from 'viem/chains';
 import Image from 'next/image';
 import SendErc20Modal from './sendErc20Modal';
 import SendEthModal from './sendEthModal';
+import SwapErc20Modal from './swapErc20Modal';
 
 export default function Account() {
     const [isMounted, setIsMounted] = useState(false);
@@ -66,6 +67,9 @@ export default function Account() {
         </div>
         <div className="w-3/5">
           <SendErc20Modal userAddress={address} />
+        </div>
+        <div className="w-3/5">
+          <SwapErc20Modal userAddress={address} />
         </div>
       </div>
     </div>
