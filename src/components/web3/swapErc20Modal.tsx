@@ -2,6 +2,11 @@
 import { useEffect, useState, useMemo } from "react"
 import Image from 'next/image';
 
+import { PriceResponse } from '@/app/api/types/index';
+import { useChainId } from 'wagmi';
+import { formatUnits, parseUnits } from 'viem';
+import qs from 'qs';
+
 import {
     Dialog,
     DialogContent,
@@ -90,13 +95,80 @@ interface Props {
 export default function SwapErc20Modal({ userAddress }: Props) {
     const [isMounted, setIsMounted] = useState(false);
     const [sellToken, setSellToken] = useState("wmatic");
+    const [sellAmount, setSellAmount] = useState('');
     const [buyToken, setBuyToken] = useState("usdc");
+    const [buyAmount, setBuyAmount] = useState('');
+    const [price, setPrice] = useState<PriceResponse | undefined>();
+    const [tradeDirection, setSwapDirection] = useState('sell');
+    const [error, setError] = useState([]);
+    
+    const chainId = useChainId() || 137;
+
+    const tokensByChain = (chainId: number) => {
+        if (chainId === 137) {
+          return POLYGON_TOKENS_BY_SYMBOL;
+        }
+        return POLYGON_TOKENS_BY_SYMBOL;
+      };
+    
+      const sellTokenObject = tokensByChain(chainId)[sellToken];
+      const buyTokenObject = tokensByChain(chainId)[buyToken];
+    
+      const sellTokenDecimals = sellTokenObject.decimals;
+      const buyTokenDecimals = buyTokenObject.decimals;
+    
+      const parsedSellAmount =
+        sellAmount && tradeDirection === 'sell'
+          ? parseUnits(sellAmount, sellTokenDecimals).toString()
+          : undefined;
+    
+      const parsedBuyAmount =
+        buyAmount && tradeDirection === 'buy'
+          ? parseUnits(buyAmount, buyTokenDecimals).toString()
+          : undefined;
 
     useEffect(() => {
         if (!isMounted) {
             setIsMounted(true);
         }
     }, [isMounted]);
+
+    useEffect(() => {
+        const params = {
+          sellToken: sellTokenObject.address,
+          buyToken: buyTokenObject.address,
+          sellAmount: parsedSellAmount,
+          takerAddress: userAddress,
+        };
+    
+        async function main() {
+          const response = await fetch(`/api/price?${qs.stringify(params)}`);
+          const data = await response.json();
+    
+          if (data?.validationErrors?.length > 0) {
+            // error for sellAmount too low
+            setError(data.validationErrors);
+          } else {
+            setError([]);
+          }
+          if (data.buyAmount) {
+            setBuyAmount(formatUnits(data.buyAmount, buyTokenObject.decimals));
+            setPrice(data);
+          }
+        }
+    
+        if (sellAmount !== '') {
+          main();
+        }
+      }, [
+        sellTokenObject.address,
+        buyTokenObject.address,
+        parsedSellAmount,
+        parsedBuyAmount,
+        userAddress,
+        sellAmount,
+        setPrice,
+      ]);
 
     return (
         <Dialog>
@@ -129,8 +201,13 @@ export default function SwapErc20Modal({ userAddress }: Props) {
                                         type="number"
                                         name="sell-amount"
                                         id="sell-amount"
+                                        value={sellAmount}
                                         placeholder="Enter amount..."
                                         required
+                                        onChange={(e) => {
+                                            setSwapDirection('sell');
+                                            setSellAmount(e.target.value)
+                                        }}
                                     />
                                 </div>
                                 <div className="w-full flex items-center gap-1.5">
@@ -147,7 +224,12 @@ export default function SwapErc20Modal({ userAddress }: Props) {
                                         type="number"
                                         id="buy-amount"
                                         name="buy-amount"
+                                        value={price ? formatUnits(BigInt(price.buyAmount), buyTokenDecimals) : buyAmount}
                                         placeholder="Enter amount..."
+                                        onChange={(event) => {
+                                            setSwapDirection('buy');
+                                            setSellAmount(event.target.value);
+                                          }}
                                         disabled
                                     />
                                 </div>
