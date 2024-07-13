@@ -1,10 +1,17 @@
-"use client";
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState } from "react"
 import Image from 'next/image';
 
-import { PriceResponse } from '@/app/api/types/index';
-import { useChainId } from 'wagmi';
-import { formatUnits, parseUnits } from 'viem';
+import { PriceResponse, QuoteResponse } from '@/app/api/types/index';
+import {
+    useBalance,
+    useChainId,
+    useReadContract,
+} from 'wagmi';
+import {
+    erc20Abi,
+    formatUnits,
+    parseUnits
+} from 'viem';
 import qs from 'qs';
 
 import {
@@ -15,78 +22,14 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { toast } from 'sonner';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import {
-    POLYGON_TOKENS,
-    POLYGON_TOKENS_EXTENDED,
-    POLYGON_TOKENS_BY_SYMBOL,
-    Token,
-} from '@/lib/constants';
-interface TokenListProps {
-    defaultValue: string;
-    setToken: (value: string) => void;
-}
 
-const TokenList = ({ defaultValue, setToken }: TokenListProps) => {
-    const [extendedList, showExtendedList] = useState(false);
-
-    const handleTokenChange = (value: string) => {
-        if (value === "extendedOptions") {
-            showExtendedList(true);
-        } else if(value === "fewerOptions") {
-            showExtendedList(false);
-        } else {
-            setToken(value)
-        }
-    }
-
-    const extendedTokens = useMemo(() => POLYGON_TOKENS_EXTENDED.map((token: Token) => (
-        <SelectItem key={token.address} value={token.symbol.toLowerCase()}>
-            {token.symbol}
-        </SelectItem>
-    )), []);
-
-    return (
-        <Select
-            onValueChange={handleTokenChange}
-            defaultValue={defaultValue}
-        >
-            <SelectTrigger className="w-1/4">
-                <SelectValue placeholder="Theme" />
-            </SelectTrigger>
-            <SelectContent>
-                {POLYGON_TOKENS.map((token: Token) => {
-                    return (
-                        <SelectItem
-                            key={token.address}
-                            value={token.symbol.toLowerCase()}
-                        >
-                            {token.symbol}
-                        </SelectItem>
-                    );
-                })}
-                {extendedList && extendedTokens}
-                {extendedList ? (
-                    <SelectItem key="fewerOptions" value="fewerOptions">
-                        <span className="italic">fewer options</span>
-                    </SelectItem>
-                ) : (
-                    <SelectItem key="extendedOptions" value="extendedOptions">
-                      <span className="italic">more options</span>
-                    </SelectItem>
-                )}
-            </SelectContent>
-        </Select>
-    )
-}
+import { POLYGON_TOKENS_BY_SYMBOL } from '@/lib/constants';
+import ApproveOrReviewButton from "./ApproveOrReviewButton";
+import ConfirmSwapButton from "./ConfirmSwapButton";
+import TokenList from "./TokenList";
 
 interface Props {
     userAddress: `0x${string}` | undefined
@@ -98,34 +41,37 @@ export default function SwapErc20Modal({ userAddress }: Props) {
     const [sellAmount, setSellAmount] = useState('');
     const [buyToken, setBuyToken] = useState("usdc");
     const [buyAmount, setBuyAmount] = useState('');
-    const [price, setPrice] = useState<PriceResponse | undefined>();
     const [tradeDirection, setSwapDirection] = useState('sell');
+    const [price, setPrice] = useState<PriceResponse | undefined>();
+    const [quote, setQuote] = useState<QuoteResponse | undefined>();
+    const [finalize, setFinalize] = useState(false);
     const [error, setError] = useState([]);
-    
+
     const chainId = useChainId() || 137;
 
     const tokensByChain = (chainId: number) => {
         if (chainId === 137) {
-          return POLYGON_TOKENS_BY_SYMBOL;
+            return POLYGON_TOKENS_BY_SYMBOL;
         }
         return POLYGON_TOKENS_BY_SYMBOL;
-      };
-    
-      const sellTokenObject = tokensByChain(chainId)[sellToken];
-      const buyTokenObject = tokensByChain(chainId)[buyToken];
-    
-      const sellTokenDecimals = sellTokenObject.decimals;
-      const buyTokenDecimals = buyTokenObject.decimals;
-    
-      const parsedSellAmount =
+    };
+
+    const sellTokenObject = tokensByChain(chainId)[sellToken];
+    const buyTokenObject = tokensByChain(chainId)[buyToken];
+
+    const sellTokenDecimals = sellTokenObject.decimals;
+    const buyTokenDecimals = buyTokenObject.decimals;
+
+    const parsedSellAmount =
         sellAmount && tradeDirection === 'sell'
-          ? parseUnits(sellAmount, sellTokenDecimals).toString()
-          : undefined;
-    
-      const parsedBuyAmount =
+            ? parseUnits(sellAmount, sellTokenDecimals).toString()
+            : undefined;
+
+    const parsedBuyAmount =
         buyAmount && tradeDirection === 'buy'
-          ? parseUnits(buyAmount, buyTokenDecimals).toString()
-          : undefined;
+            ? parseUnits(buyAmount, buyTokenDecimals).toString()
+            : undefined;
+
 
     useEffect(() => {
         if (!isMounted) {
@@ -135,40 +81,76 @@ export default function SwapErc20Modal({ userAddress }: Props) {
 
     useEffect(() => {
         const params = {
-          sellToken: sellTokenObject.address,
-          buyToken: buyTokenObject.address,
-          sellAmount: parsedSellAmount,
-          takerAddress: userAddress,
+            sellToken: sellTokenObject.address,
+            buyToken: buyTokenObject.address,
+            sellAmount: parsedSellAmount,
+            takerAddress: userAddress,
         };
-    
+
         async function main() {
-          const response = await fetch(`/api/price?${qs.stringify(params)}`);
-          const data = await response.json();
-    
-          if (data?.validationErrors?.length > 0) {
-            // error for sellAmount too low
-            setError(data.validationErrors);
-          } else {
-            setError([]);
-          }
-          if (data.buyAmount) {
-            setBuyAmount(formatUnits(data.buyAmount, buyTokenObject.decimals));
-            setPrice(data);
-          }
+            const response = await fetch(`/api/price?${qs.stringify(params)}`);
+            const data = await response.json();
+
+            if (data?.validationErrors?.length > 0) {
+                // error for sellAmount too low
+                setError(data.validationErrors);
+            } else {
+                setError([]);
+            }
+            if (data.buyAmount) {
+                setBuyAmount(formatUnits(data.buyAmount, buyTokenObject.decimals));
+                setPrice(data);
+            }
         }
-    
+
         if (sellAmount !== '') {
-          main();
+            main();
         }
-      }, [
-        sellTokenObject.address,
-        buyTokenObject.address,
-        parsedSellAmount,
-        parsedBuyAmount,
-        userAddress,
-        sellAmount,
-        setPrice,
-      ]);
+    }, [sellTokenObject.address, buyTokenObject.address, parsedSellAmount, parsedBuyAmount, userAddress, sellAmount, setPrice, buyTokenObject.decimals]);
+
+    // useBalance token parameter is deprecated; use useReadContracts instead for non-native tokens
+    const { data: sellTokenBalance } = useReadContract({
+                address: sellTokenObject.address,
+                abi: erc20Abi,
+                functionName: 'balanceOf',
+                args: [userAddress || '0x0'],
+    });
+
+    const userTokenBalance = {
+        value: sellTokenBalance || BigInt(0),
+        decimals: sellTokenObject.decimals,
+        symbol: sellTokenObject.symbol,
+    };
+
+
+    // Check if user can cover the desired sellAmount comparing it to the user's token balance
+    const insufficientBalance =
+        userTokenBalance && sellAmount
+            ? parseUnits(sellAmount, sellTokenDecimals) > userTokenBalance.value
+            : true;
+
+    async function getQuote(e: React.MouseEvent<HTMLButtonElement>) {
+        e.preventDefault();
+        if (!userAddress || !price) {
+            toast.warning('You must connect your wallet...');
+            return;
+        }
+
+        const params = {
+            sellToken: price.sellTokenAddress,
+            buyToken: price.buyTokenAddress,
+            sellAmount: price.sellAmount,
+            takerAddress: userAddress,
+        };
+        try {
+            const response = await fetch(`/api/quote?${qs.stringify(params)}`);
+            const data = await response.json();
+            setQuote(data);
+            setFinalize(true);
+        } catch (error) {
+            console.error(error);
+        }
+    }
 
     return (
         <Dialog>
@@ -229,12 +211,22 @@ export default function SwapErc20Modal({ userAddress }: Props) {
                                         onChange={(event) => {
                                             setSwapDirection('buy');
                                             setSellAmount(event.target.value);
-                                          }}
+                                        }}
                                         disabled
                                     />
                                 </div>
                             </div>
-                            <Button>Swap</Button>
+                            {finalize && price ? (
+                                <ConfirmSwapButton quote={quote} setFinalize={setFinalize} />
+                            ) : (
+                                <ApproveOrReviewButton
+                                    sellAmount={sellAmount}
+                                    sellTokenAddress={POLYGON_TOKENS_BY_SYMBOL[sellToken].address}
+                                    userAddress={userAddress}
+                                    onClick={getQuote}
+                                    disabled={insufficientBalance}
+                                />
+                            )}
                         </form>
                     </div>
                 ) : (

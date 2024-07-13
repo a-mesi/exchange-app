@@ -5,23 +5,21 @@ import 'dotenv/config';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, createConfig, WagmiProvider } from 'wagmi';
 import { ConnectKitProvider, getDefaultConfig } from 'connectkit';
-import { polygonZkEvmCardona } from 'wagmi/chains';
+import { polygonZkEvmCardona, polygon, mainnet } from 'wagmi/chains';
 
 const config = createConfig(
   getDefaultConfig({
     // Your dApps chains
-    chains: [polygonZkEvmCardona],
+    chains: [polygonZkEvmCardona, polygon, mainnet],
     transports: {
       // RPC URL for each chain
-      [polygonZkEvmCardona.id]: http(
-`https://polygonzkevm-cardona.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
-
-      ),
+      [polygonZkEvmCardona.id]: http(`https://polygonzkevm-cardona.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`),
+      [polygon.id]: http(`https://polygon-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`),
+      [mainnet.id]: http(`https://mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`),
     },
 
     // Required API Keys
-    walletConnectProjectId:
-      process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
+    walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
 
     // Required App Info
     appName: 'Exchange App',
