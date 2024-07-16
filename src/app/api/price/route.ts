@@ -8,7 +8,7 @@ export  async  function  GET(request:  NextRequest) {
 	`https://polygon.api.0x.org/swap/v1/price?${searchParams}`,
 		{
 			headers: {
-				"0x-api-key": "85bd668a-2dec-4610-8c7b-3884f2438cb7"  as  string,
+				"0x-api-key": process.env.NEXT_PUBLIC_ZEROEX_API_KEY as string,
 		},
 	  }
 	);
